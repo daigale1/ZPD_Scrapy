@@ -1,0 +1,93 @@
+import scrapy
+from scrapy_selenium import SeleniumRequest
+from selenium import webdriver
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+import time
+
+class LinkedInSpider(scrapy.Spider):
+    name = 'linkedin_spider'
+    LOGIN_URL = "https://www.linkedin.com/login"
+    EMAIL = "patrickstarcookie@gmail.com"
+    PASSWORD = "NsYJKg)?#2pFb*t"
+    NETWORK_URL = "https://www.linkedin.com/mynetwork/"
+
+    def __init__(self, *args, **kwargs):
+        super(LinkedInSpider, self).__init__(*args, **kwargs)
+
+        self.options = Options()
+        self.options.add_argument('--headless')
+        self.options.add_argument('--no-sandbox')
+        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=self.options)
+
+    def start_requests(self):
+        yield SeleniumRequest(
+            url=self.LOGIN_URL,
+            callback=self.login,
+            wait_time=10,  
+            dont_filter=True 
+        )
+
+    def login(self):
+        self.driver.get(self.LOGIN_URL)
+        time.sleep(2) 
+        username_input = self.driver.find_element(By.ID, "username")
+        username_input.send_keys(self.EMAIL)
+        password_input = self.driver.find_element(By.ID, "password")
+        password_input.send_keys(self.PASSWORD + Keys.RETURN)
+        time.sleep(5) 
+        print("Log in successful")
+
+        yield SeleniumRequest(
+            url=self.NETWORK_URL,
+            callback=self.go_to_events,
+            wait_time=10,
+            dont_filter=True
+        )
+
+    def go_to_events(self):
+        try:
+            iframe = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "iframe[src*='events']"))
+            )
+            self.driver.switch_to.frame(iframe)
+            events_link = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.LINK_TEXT, "Events"))
+            )
+            events_link.click()
+            print("Clicked on Events")
+        finally:
+            self.driver.switch_to.default_content()
+
+        yield SeleniumRequest(
+            url=self.driver.current_url,
+            callback=self.extract_events,
+            wait_time=10,
+            dont_filter=True
+        )
+
+    def extract_events(self):
+        print("Extracting events...")
+        WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "p.events-components-shared-discovery-card__event-title.link-without-visited-state.t-black.t-bold"))
+        )
+        events = self.driver.find_elements(By.CSS_SELECTOR, "p.events-components-shared-discovery-card__event-title.link-without-visited-state.t-black.t-bold")
+
+        if events:
+            print("\nNotikumi:")
+            for event in events:
+                print(f"- {event.text}")
+    
+    def closed(self):
+        self.driver.quit()
+        print("Browser closed.")
+
+from scrapy.crawler import CrawlerProcess
+process = CrawlerProcess()
+process.crawl(LinkedInSpider)
+process.start()
