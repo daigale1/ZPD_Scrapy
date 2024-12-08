@@ -1,0 +1,29 @@
+import scrapy
+from scrapy.crawler import CrawlerProcess
+
+class GutenbergSpider(scrapy.Spider):
+    name = "gutenberg"
+    start_urls = ["https://www.gutenberg.org/ebooks/search/?sort_order=downloads"]
+    page_count = 0 
+    max_pages = 5
+
+    def parse(self, response):
+        self.page_count += 1
+
+        nosaukumi = response.css('span.title::text').getall()
+        print(f"Lapa nr.{self.page_count}:")
+        for nosaukums in nosaukumi:
+            print(nosaukums)
+        print("-" * 50)
+
+        if self.page_count < self.max_pages:
+            current_index = int(response.url.split("start_index=")[-1]) if "start_index=" in response.url else 0
+            next_index = current_index + 25
+            next_page_url = f"https://www.gutenberg.org/ebooks/search/?sort_order=downloads&start_index={next_index}"
+
+            yield scrapy.Request(url=next_page_url, callback=self.parse)
+
+if __name__ == "__main__":
+    process = CrawlerProcess()
+    process.crawl(GutenbergSpider)
+    process.start()
