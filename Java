@@ -1,0 +1,19 @@
+import scrapy
+from scrapy.crawler import CrawlerProcess
+
+class GuardianSpider(scrapy.Spider):
+    name = "guardian"
+    start_urls = ["https://www.theguardian.com/europe"]
+  
+    def parse(self, response):
+        links = response.css('a[aria-label]')
+        aria_labels = [link.attrib['aria-label'] for link in links]
+        
+        print("Atrastie ziņu virsraksti:")
+        for label in aria_labels:
+            print(label)
+
+if __name__ == "__main__":
+    process = CrawlerProcess()
+    process.crawl(GuardianSpider)
+    process.start()
