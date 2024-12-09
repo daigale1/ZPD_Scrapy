@@ -1,0 +1,46 @@
+import scrapy
+from scrapy.crawler import CrawlerProcess
+
+class CovidSpider(scrapy.Spider):
+    name = 'covid_spider'
+    start_urls = ['https://lv.wikipedia.org/wiki/COVID-19_pand%C4%93mija']
+
+    def parse(self, response):
+        tabula = response.xpath('//table[@class="wikitable"]')
+        if tabula:
+            rows = tabula.xpath('.//tr')
+            for row in rows:
+                cols = row.xpath('.//*[self::td or self::th]')
+                cols = [col.xpath('string(.)').get().strip() for col in cols]
+                print("\t".join(cols)) 
+
+        latvija_found = False
+        igaunija_found = False
+        saturs = []
+        virsraksti = response.xpath('//div[@class="mw-content-text"]//h2//span[@class="mw-headline"]')
+
+        for virsraksts in virsraksti:
+            virsraksti_teksts = virsraksts.xpath('text()').get()
+            if virsraksti_teksts and 'Latvija' in virsraksti_teksts:
+                latvija_found = True
+            elif virsraksti_teksts and 'Igaunija' in virsraksti_teksts:
+                igaunija_found = True
+                break
+
+            if latvija_found:
+                saturs.append(virsraksti_teksts)
+                for section in response.xpath('//div[@class="mw-content-text"]/*')[response.xpath('//div[@class="mw-content-text"]/*').index(virsraksts)+1:]:
+                    if section.xpath('./self::h2').get():
+                        if section.xpath('./span[@class="mw-headline"]/text()').get() == 'Igaunija':
+                            break
+                    if section.xpath('./self::p').get():
+                        saturs.append(section.xpath('./text()').get().strip())
+
+        if latvija_found:
+            print("\nCOVID-19 Latvijā:")
+            for text in saturs:
+                print(text) 
+
+process = CrawlerProcess()
+process.crawl(CovidSpider)
+process.start()
