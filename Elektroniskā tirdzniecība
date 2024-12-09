@@ -1,0 +1,43 @@
+import scrapy
+from scrapy_selenium import SeleniumRequest
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+
+class EbayTvSpider(scrapy.Spider):
+    name = "ebay_tv"
+    allowed_domains = ["ebay.com"]
+    start_urls = [f"https://www.ebay.com/b/TVs/11071/bn_738302?_pgn={page}" for page in range(1, 6)]
+
+    def start_requests(self):
+        for url in self.start_urls:
+            print(f"Generating request for {url}")
+            yield SeleniumRequest(
+                url=url,
+                callback=self.parse,
+                wait_time=10,
+                wait_until=EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.s-item')),
+                meta={'url': url}
+            )
+
+    def parse(self, response):
+        url = response.meta['url']
+        tvs = response.css('.s-item')
+
+        for tv in tvs:
+            nosaukums = tv.css('h3.s-item__title::text').get()
+            cena = tv.css('span.s-item__price::text').get()
+
+            if nosaukums and cena:
+                yield {
+                    'tv_name': nosaukums.strip(),
+                    'tv_price': nosaukums.strip(),
+                    'url': url
+                }
+
+if __name__ == "__main__":
+    from scrapy.crawler import CrawlerProcess
+    from scrapy.utils.project import get_project_settings
+
+    process = CrawlerProcess(get_project_settings())
+    process.crawl(EbayTvSpider)
+    process.start()
