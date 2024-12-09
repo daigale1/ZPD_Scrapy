@@ -30,7 +30,7 @@ class EbayTvSpider(scrapy.Spider):
             if nosaukums and cena:
                 yield {
                     'tv_name': nosaukums.strip(),
-                    'tv_price': nosaukums.strip(),
+                    'tv_price': cena.strip(),
                     'url': url
                 }
 
